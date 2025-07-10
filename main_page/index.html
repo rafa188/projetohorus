@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HORUS Painel de Controle</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="control-panel">
+            <img src="imgs/logohorus.jpeg" alt="HORUS Logo" class="horus-logo">
+            <h2>Painel de Controle</h2>
+            <div class="button-group">
+                <div class="system-button"><img src="imgs/technical-support.png" alt=""> TI</div>
+                <div class="system-button system-ambulancia"> <img src="imgs/star.png" alt="">Sistema Ambulância</div>
+                <div class="system-button"> <img src="imgs/report.png" alt="">Relatórios</div>
+                <div class="system-button system-policial"><img src="imgs/policeman.png" alt=""> Sistema Policial</div>
+                <div class="system-button system-bombeiros"><img src="imgs/firefighter.png" alt=""> Sistema Bombeiros</div>
+                <div class="system-button system-ministerial"><img src="imgs/government.png" alt=""> Sistema Ministerial</div>
+                <div class="system-button system-embaixadas"> <img src="imgs/embassy.png" alt="">Sistema Embaixadas</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Raindrop animation
+        function createRaindrop() {
+            const raindrop = document.createElement('div');
+            raindrop.classList.add('raindrop');
+            raindrop.style.left = Math.random() * 100 + 'vw';
+            raindrop.style.animationDuration = Math.random() * 2 + 1 + 's';
+            document.body.appendChild(raindrop);
+
+            setTimeout(() => {
+                raindrop.remove();
+            }, 5000);
+        }
+
+        setInterval(createRaindrop, 100);
+    </script>
+</body>
+</html>

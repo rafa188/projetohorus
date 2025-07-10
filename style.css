@@ -1,0 +1,74 @@
+       @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-100vh); opacity: 0.7; }
+            100% { transform: translateY(100vh); opacity: 0.2; }
+        }
+        .raindrop {
+            position: absolute;
+            top: -10px;
+            width: 2px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.3);
+            animation: fall linear infinite;
+            pointer-events: none;
+        }
+        body {
+            background: linear-gradient(135deg, #1e3a8a, #2d2d2d);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .container {
+            z-index: 10;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .horus-eye {
+            width: clamp(40px, 10vw, 64px);
+            height: clamp(40px, 10vw, 64px);
+            fill: none;
+            stroke: #FFD700;
+            stroke-width: 2;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        @media (max-width: 640px) {
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .login-card {
+                padding: 1.5rem;
+            }
+            h2 {
+                font-size: 1.5rem;
+            }
+            input, button {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .login-card {
+                padding: 2rem;
+            }
+            h2 {
+                font-size: 2rem;
+            }
+        }
