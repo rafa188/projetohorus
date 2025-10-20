@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HORUS - Sistema de Detecção de Incêndios</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #0a0a0a;
+            color: #fff;
+            overflow-x: hidden;
+            position: relative;
+        }
+        canvas#sparkles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .control-panel {
+            background: rgba(20, 20, 20, 0.9);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        .horus-logo {
+            max-width: 150px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-weight: 700;
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #e9ed05;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        input[type="file"], input[type="text"], select {
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #222;
+            color: #fff;
+            font-size: 16px;
+            width: 300px;
+            max-width: 100%;
+        }
+        input[type="text"]::placeholder {
+            color: #888;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #e9ed05;
+            color: #0a0a0a;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #d0d405;
+        }
+        #fireCanvas, #video {
+            max-width: 100%;
+            border: 2px solid #333;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        #fireCanvas.active, #video.active {
+            display: block;
+        }
+        #result {
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        .fire-detected {
+            background: rgba(255, 50, 50, 0.2);
+            border: 1px solid #ff4d4d;
+        }
+        .no-fire {
+            background: rgba(50, 255, 50, 0.2);
+            border: 1px solid #33cc33;
+        }
+        .loading {
+            background: rgba(100, 100, 100, 0.2);
+            border: 1px solid #888;
+        }
+        .raindrop {
+            position: fixed;
+            width: 2px;
+            height: 20px;
+            background: linear-gradient(to bottom, transparent, #e9ed05);
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #e9ed05;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        .loader.active {
+            display: block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body id="corpo">
+    <canvas id="sparkles"></canvas>
+    <div class="container">
+        <div class="control-panel">
+            <img src="imgs/logohorus.jpeg" alt="HORUS Logo" class="horus-logo">
+            <h2>Sistema de Detecção de Incêndios</h2>
+            <div class="controls">
+                <input type="file" id="imageInput" accept="image/*">
+                <input type="text" id="imageUrl" placeholder="Ou insira a URL da imagem">
+                <select id="inputType">
+                    <option value="image">Imagem</option>
+                    <option value="video">Webcam</option>
+                </select>
+                <button onclick="analyzeInput()">Analisar</button>
+            </div>
+            <div class="loader" id="loader"></div>
+            <canvas id="fireCanvas"></canvas>
+            <video id="video" autoplay></video>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Raindrop animation
+        function createRaindrop() {
+            const raindrop = document.createElement('div');
+            raindrop.classList.add('raindrop');
+            raindrop.style.left = Math.random() * 100 + 'vw';
+            raindrop.style.animationDuration = Math.random() * 2 + 1 + 's';
+            document.body.appendChild(raindrop);
+
+            setTimeout(() => {
+                raindrop.remove();
+            }, 5000);
+        }
+
+        setInterval(createRaindrop, 100);
+
+        // Sparkles animation
+        const canvas = document.getElementById('sparkles');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        class Sparkle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 1;
+                this.speedX = Math.random() * 2 - 1;
+                this.speedY = Math.random() * 2 - 1;
+                this.opacity = Math.random();
+                this.opacitySpeed = Math.random() * 0.005 + 0.002;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.opacity -= this.opacitySpeed;
+
+                if (this.opacity <= 0) {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.opacity = Math.random();
+                    this.size = Math.random() * 2 + 1;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(233, 237, 5, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        const sparkles = [];
+        const sparkleCount = 100;
+
+        for (let i = 0; i < sparkleCount; i++) {
+            sparkles.push(new Sparkle());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            sparkles.forEach(sparkle => {
+                sparkle.update();
+                sparkle.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Fire Detection System
+        class FireDetector {
+            constructor(canvasId, threshold = 0.7) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.threshold = threshold;
+                this.model = null;
+                this.video = document.getElementById('video');
+                this.isVideoMode = false;
+            }
+
+            async loadModel() {
+                try {
+                    // Replace with your actual model URL
+                    this.model = await tf.loadLayersModel('https://example.com/fire-model/model.json');
+                    console.log('Model loaded successfully');
+                } catch (error) {
+                    console.error('Failed to load model:', error);
+                    alert('Falha ao carregar o modelo de IA. Usando detecção básica.');
+                }
+            }
+
+            async processImage(imageElement) {
+                const tensor = tf.browser.fromPixels(imageElement)
+                    .resizeNearestNeighbor([224, 224]) // MobileNet input size
+                    .toFloat()
+                    .div(tf.scalar(255))
+                    .expandDims();
+                return tensor;
+            }
+
+            async analyzeWithModel(inputElement) {
+                if (!this.model) {
+                    return this.analyzeWithColor(inputElement);
+                }
+
+                const tensor = await this.processImage(inputElement);
+                const prediction = await this.model.predict(tensor).data();
+                tensor.dispose();
+
+                const [fireProb, noFireProb, smokeProb] = prediction;
+                return {
+                    fireDetected: fireProb > this.threshold,
+                    fireConfidence: (fireProb * 100).toFixed(2),
+                    smokeConfidence: (smokeProb * 100).toFixed(2)
+                };
+            }
+
+            analyzeWithColor(inputElement, callback) {
+                const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                const data = imageData.data;
+                let firePixels = 0;
+                let smokePixels = 0;
+                const totalPixels = this.canvas.width * this.canvas.height;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    // Fire detection (red/orange dominance)
+                    if (r > 150 && r > g + 50 && g > b && (r + g + b) > 300) {
+                        firePixels++;
+                    }
+                    // Smoke detection (grayscale, low contrast)
+                    if (Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r < 200 && r > 50) {
+                        smokePixels++;
+                    }
+                }
+
+                const firePercentage = (firePixels / totalPixels) * 100;
+                const smokePercentage = (smokePixels / totalPixels) * 100;
+
+                const result = {
+                    fireDetected: firePercentage > 5,
+                    fireConfidence: firePercentage.toFixed(2),
+                    smokeConfidence: smokePercentage.toFixed(2)
+                };
+
+                if (callback) callback(result);
+                return result;
+            }
+
+            drawInput(inputElement) {
+                this.canvas.width = inputElement.width || inputElement.videoWidth;
+                this.canvas.height = inputElement.height || inputElement.videoHeight;
+                this.ctx.drawImage(inputElement, 0, 0);
+            }
+        }
+
+        const detector = new FireDetector('fireCanvas', 0.7);
+        let videoStream = null;
+
+        async function setupVideo() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                detector.video.srcObject = videoStream;
+                detector.isVideoMode = true;
+                detector.canvas.classList.remove('active');
+                detector.video.classList.add('active');
+            } catch (error) {
+                console.error('Failed to access webcam:', error);
+                alert('Falha ao acessar a webcam.');
+            }
+        }
+
+        function stopVideo() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+                detector.video.srcObject = null;
+                detector.isVideoMode = false;
+                detector.video.classList.remove('active');
+                detector.canvas.classList.add('active');
+            }
+        }
+
+        async function analyzeInput() {
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+            resultDiv.innerHTML = 'Analisando...';
+            resultDiv.className = 'loading';
+            loader.classList.add('active');
+
+            const inputType = document.getElementById('inputType').value;
+            const fileInput = document.getElementById('imageInput');
+            const urlInput = document.getElementById('imageUrl');
+
+            if (inputType === 'video') {
+                await setupVideo();
+                analyzeVideoFrame();
+            } else {
+                stopVideo();
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+
+                if (fileInput.files && fileInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else if (urlInput.value) {
+                    img.src = urlInput.value;
+                } else {
+                    resultDiv.innerHTML = 'Por favor, selecione uma imagem ou URL';
+                    resultDiv.className = 'no-fire';
+                    loader.classList.remove('active');
+                    return;
+                }
+
+                img.onload = async () => {
+                    detector.drawInput(img);
+                    const result = await detector.analyzeWithModel(img);
+                    displayResult(result);
+                    loader.classList.remove('active');
+                };
+                img.onerror = () => {
+                    alert('Falha ao carregar a imagem. Verifique a URL ou arquivo.');
+                    resultDiv.innerHTML = 'Erro ao carregar a imagem';
+                    resultDiv.className = 'no-fire';
+                    loader.classList.remove('active');
+                };
+            }
+        }
+
+        async function analyzeVideoFrame() {
+            if (!detector.isVideoMode) return;
+            detector.drawInput(detector.video);
+            const result = await detector.analyzeWithModel(detector.video);
+            displayResult(result);
+            requestAnimationFrame(analyzeVideoFrame);
+        }
+
+        function displayResult(result) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = result.fireDetected
+                ? `<strong>Incêndio Detectado!</strong> Confiança: ${result.fireConfidence}% (Fumaça: ${result.smokeConfidence}%)`
+                : `Nenhum incêndio detectado. Confiança: ${result.fireConfidence}% (Fumaça: ${result.smokeConfidence}%)`;
+            resultDiv.className = result.fireDetected ? 'fire-detected' : 'no-fire';
+        }
+
+        // Load model on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            detector.loadModel();
+            detector.canvas.classList.add('active');
+        });
+    </script>
+</body>
+</html>

@@ -11,7 +11,9 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
-
+a {
+    text-decoration: none;
+}
 canvas {
     position: absolute;
     top: 0;
@@ -136,4 +138,5 @@ canvas {
         width: 20px;
         height: 20px;
     }
+    
 }
